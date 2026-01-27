@@ -1,0 +1,23 @@
+# BASE-IMAGE
+
+FROM python:3.11-slim
+
+# CREATE A WORKING DIRECTORY
+
+WORKDIR /app
+
+# COPY THE CODE FROM REMOTE TO LOCAL
+
+COPY . . 
+
+# INSTALLING THE PACKAGES & DEPENDENCIES
+
+RUN pip install -r requirements.txt
+
+# EXPOSE
+
+EXPOSE 5000
+
+# SERVE THE APPLICATION
+
+CMD ["python","app.py"]
