@@ -1,0 +1,43 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+    volumes:
+      - mysql-fresh-data:/var/lib/mysql
+    networks:
+      - project-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uadmin", "-padmin"]
+      interval: 10s
+      timeout: 5s
+      retries: "10"
+      start_period: 30s
+      
+  flask-app:
+    build:
+      context: .
+    container_name: two-tier-flask-app
+    ports:
+      - "5000:5000"   
+    environment:
+      MYSQL_DB: mydb
+      MYSQL_HOST: mysql
+      MYSQL_PASSWORD: admin
+      MYSQL_USER: mysql
+    networks:
+      - project-network
+    depends_on:
+      - mysql
+    restart: always
+
+networks:
+  project-network:
+
+volumes:
+  mysql-fresh-data:
+
