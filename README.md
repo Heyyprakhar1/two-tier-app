@@ -233,18 +233,41 @@ sudo usermod -aG docker $USER
 <img width="1140" height="1102" alt="image" src="https://github.com/user-attachments/assets/f371ca61-88e8-4e6e-904a-126763b16c5f" />
 
 
-> Interviewers value **understanding**, not just running commands.
+> 
+ CI/CD Pipeline
 
----
+This project includes a complete Jenkins pipeline for automated deployment.
 
-## 📈 What You Can Add Next
+### Pipeline Stages
+1. ✅ **Checkout** - Pull latest code
+2. ✅ **Build** - Create Docker images
+3. ✅ **Test** - Run automated tests
+4. ✅ **Security Scan** - Trivy vulnerability detection
+5. ✅ **Push** - Push to Docker Hub
+6. ✅ **Deploy** - Deploy to staging
 
-* Kubernetes deployment
-* GitHub Actions CI/CD
-* Nginx reverse proxy
-* Prometheus & Grafana
-* AWS ECS deployment
+### Jenkins Setup
 
+1. **Create Pipeline Job**
+   - New Item → Pipeline
+   - Name: `two-tier-flask-app`
+
+2. **Configure SCM**
+   - Pipeline script from SCM
+   - Repository: `https://github.com/Heyyprakhar1/two-tier-app.git`
+   - Script Path: `Jenkinsfile`
+
+3. **Add Credentials**
+   - Manage Jenkins → Credentials
+   - Add Docker Hub credentials
+   - ID: `dockerhub-credentials`
+
+4. **Trigger Build**
+   - Push to main branch (Webhook-trigger)
+   - Or click "Build Now" (manual)
+
+
+Screenshot Attched:- 
 ---
 
 ## 📜 License
