@@ -1,22 +1,19 @@
-pipeline {
-    agent { label 'slave' }
-
-    stages {
-        stage("Code Clone") {
-            steps {
+pipeline{
+    agent any;
+    stages{
+        stage("code clone"){
+            steps{
                 git url: "https://github.com/Heyyprakhar1/two-tier-app.git", branch: "project"
-                echo "Code cloned successfully!"
+                echo "code clone successfully..!"
             }
         }
-
-        stage("Docker Image Build") {
-            steps {
-                sh "docker build -t flask-image ."
-                echo "Image built successfully!"
+        stage("docker build"){
+            steps{
+                sh "docker build -t my-app ."
+                echo "docker build successfully..!"
             }
         }
-
-        stage("Image Tag & Push to DockerHub") {
+        stage("DockerHub Push") {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhubcred',
@@ -26,8 +23,8 @@ pipeline {
 
                     sh '''
                       echo "$DockerHubPass" | docker login -u "$DockerHubUser" --password-stdin
-                      docker tag flask-image $DockerHubUser/flask-image:latest
-                      docker push $DockerHubUser/flask-image:latest
+                      docker tag my-app $DockerHubUser/my-app: latest
+                      docker push $DockerHubUser/my-app: latest
                     '''
                 }
             }
@@ -35,9 +32,8 @@ pipeline {
         stage("docker compose"){
             steps{
                 sh "docker compose up -d"
-                echo "docker container is Up & Running..!"
+                echo "Docker container is up & Running..!"
             }
         }
     }
 }
-
