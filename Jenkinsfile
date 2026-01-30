@@ -8,7 +8,11 @@ pipeline {
                 echo "code clone successfully..!"
             }
         }
-
+        stage("trivy scan step"){
+            steps{
+                sh "trivy fs . -o results.json"
+            }
+        }
         stage("docker build") {
             steps {
                 sh "docker build -t my-app ."
