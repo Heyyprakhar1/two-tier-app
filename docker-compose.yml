@@ -4,6 +4,7 @@ services:
   mysql:
     image: mysql:8.0
     container_name: mysql
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: mydb
@@ -24,6 +25,7 @@ services:
   flask-app:
     image: heyyprakhar1/flask-image:latest
     container_name: two-tier-flask-app
+    restart: unless-stopped 
     ports:
       - "5000:5000"
     environment:
