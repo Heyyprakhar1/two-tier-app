@@ -11,11 +11,11 @@ jobs:
       - name: docker-build-push
         uses: docker/login-actions@v4
         with:
-          username: ${{ vars.GITHUB_USER }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ vars.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
       - name: build - push
         uses: docker/build-push-actions@v6
         with:
           context: .
           push: true
-          tags: ${{ vars.GITHUB_USER }}//github-actions-practice:latest
+          tags: ${{ vars.DOCKER_USER }}//github-actions-practice:latest
