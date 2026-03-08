@@ -1,0 +1,16 @@
+name: deploy-to-server
+on:
+    workflow_call:
+
+jobs:
+    deploy-to-prod-server:
+        runs-on: self-hosted
+        steps:
+            - name: Deploy to prod server
+              uses: appleboy/ssh-action@v1.0.3
+              with:
+                  host: ${{ secrets.EC2.PROD_SERVER_HOST }}
+                  key: ${{ secrets.EC2.PROD_SERVER_SSH_KEY }}
+                  username: ${{ secrets.EC2.PROD_SERVER_SSH_USER }}
+                  script: |
+                      echo "Tests are done and we are deploying to prod server"
