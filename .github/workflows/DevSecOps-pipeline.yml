@@ -14,11 +14,6 @@ jobs:
     dockerfile-scan:
         uses: ./.github/workflows/dockerfile-scan.yml
 
-    image-scan:
-        needs: [docker-build-push]
-        uses: ./.github/workflows/image-scan.yml
-        secrets: inherit
-
     docker-build-push:
         needs:
             [
@@ -30,7 +25,12 @@ jobs:
         uses: ./.github/workflows/docker-build-push.yml
         secrets: inherit
 
-    deploy-to-prod-server:
+    image-scan:
         needs: [docker-build-push]
+        uses: ./.github/workflows/image-scan.yml
+        secrets: inherit
+
+    deploy-to-prod-server:
+        needs: [image-scan, docker-build-push]
         uses: ./.github/workflows/deploy-to-prod-server.yml
         secrets: inherit
