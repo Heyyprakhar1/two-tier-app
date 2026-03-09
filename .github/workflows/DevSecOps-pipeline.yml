@@ -5,14 +5,19 @@ jobs:
     code-quality-scan:
         uses: ./.github/workflows/code-quality.yml
 
+    secrets-scan:
+        uses: ./.github/workflows/secrets-scan.yml
+
     dependency-check-scan:
         uses: ./.github/workflows/dependencies-scan.yml
 
     dockerfile-scan:
         uses: ./.github/workflows/dockerfile-scan.yml
 
-    secrets-scan:
-        uses: ./.github/workflows/secrets-scan.yml
+    image-scan:
+        needs: [docker-build-push]
+        uses: ./.github/workflows/image-scan.yml
+        secrets: inherit
 
     docker-build-push:
         needs:
@@ -25,12 +30,7 @@ jobs:
         uses: ./.github/workflows/docker-build-push.yml
         secrets: inherit
 
-    image-scan:
-        needs: [docker-build-push]
-        uses: ./.github/workflows/image-scan.yml
-        secrets: inherit
-
     deploy-to-prod-server:
-        needs: [image-scan]
+        needs: [docker-build-push]
         uses: ./.github/workflows/deploy-to-prod-server.yml
         secrets: inherit
