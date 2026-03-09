@@ -20,7 +20,7 @@ EXPOSE 5000
 
 # STAGE-2(BASE-IMAGE)
 
-FROM gcr.io/distroless/python3-debian12
+FROM gcr.io/distroless/python3-debian12:debug
 
 # WORKDIR
 
@@ -43,5 +43,5 @@ ENV PYTHONPATH=/app/deps
 
 # SERVE THE APPS
 
-CMD ["python","app.py"]
+CMD ["app.py"]
 
