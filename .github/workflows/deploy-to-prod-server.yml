@@ -11,7 +11,7 @@ on:
 
 jobs:
     deploy-to-prod-server:
-        runs-on: ubuntu-latest
+        runs-on: self-hosted
         steps:
             - name: Deploy to prod server
               uses: appleboy/ssh-action@v1.0.3
