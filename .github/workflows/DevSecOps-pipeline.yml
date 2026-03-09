@@ -1,7 +1,5 @@
 name: DevSecOps end-to-end workflow
 on:
-    push:
-        branches: [main]
     workflow_dispatch:
 jobs:
     code-quality-scan:
@@ -17,7 +15,13 @@ jobs:
         uses: ./.github/workflows/secrets-scan.yml
 
     docker-build-push:
-        needs: [dependency-check-scan, dockerfile-scan, secrets-scan]
+        needs:
+            [
+                dependency-check-scan,
+                dockerfile-scan,
+                secrets-scan,
+                code-quality-scan,
+            ]
         uses: ./.github/workflows/docker-build-push.yml
         secrets: inherit
 

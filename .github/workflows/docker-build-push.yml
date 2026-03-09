@@ -1,10 +1,9 @@
 name: docker build
 on:
   workflow_call:
-  workflow_dispatch:
 jobs:
   dockerizing-the-two-tier-app:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: checkout code
         uses: actions/checkout@v4
