@@ -13,7 +13,10 @@ jobs:
     deploy-to-prod-server:
         runs-on: ubuntu-latest
         steps:
-            - name: Deploy to prod server
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Deploy to prod server && create a folder DevOps
               uses: appleboy/ssh-action@v1.0.3
               with:
                   host: ${{ secrets.PROD_SERVER_HOST }}
@@ -21,4 +24,30 @@ jobs:
                   username: ${{ secrets.PROD_SERVER_SSH_USER }}
                   script: |
                       echo "Tests are done and we are deploying to prod server"
-                      mkdir -p /home/ubuntu/DevOps
+                      mkdir -p Two-tier-folder
+
+            - name: Copy the docker compose file
+              uses: appleboy/scp-actions@v1
+              with:
+                  host: ${{ secrets.PROD_SERVER_HOST }}
+                  key: ${{ secrets.PROD_SERVER_SSH_KEY }}
+                  username: ${{ secrets.PROD_SERVER_SSH_USER }}
+                  source: docker-compose.yml
+                  target: ~/Two-tier-folder
+
+            - name: Deploy to prod server && run the app
+              uses: appleboy/ssh-action@v1.0.3
+              with:
+                  host: ${{ secrets.PROD_SERVER_HOST }}
+                  key: ${{ secrets.PROD_SERVER_SSH_KEY }}
+                  username: ${{ secrets.PROD_SERVER_SSH_USER }}
+                  script: |
+                      echo "Running app"
+                      sudo apt-get update && sudo apt-get install docker.io docker-compose-v2 -y
+                      sudo usermod -aG docker $USER && newgrp docker
+                      export
+                        tags: |
+                           ${{ vars.DOCKER_USER }}/flask-image:latest
+                           ${{ vars.DOCKER_USER }}/flask-image:${{ github.sha }}
+                      echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ vars.DOCKER_USER }} --password-stdin
+                      cd ~/DevOps && docker compose down && docker compose up -d --build --force-recreate --pull always
