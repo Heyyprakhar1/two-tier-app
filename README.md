@@ -1,180 +1,563 @@
-# 🚀 Two-Tier Application (Flask + MySQL)
+# Two-Tier Application (Flask + MySQL)
 
-![Docker](https://img.shields.io/badge/Docker-Automated-2496ED?logo=docker)
-![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub_Actions-2088FF?logo=githubactions)
-![Auth](https://img.shields.io/badge/Auth-Flask--Bcrypt-orange)
-![Security](https://img.shields.io/badge/Security-DevSecOps-red)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://img.shields.io)
+[![Docker](https://img.shields.io/badge/Docker-Automated-2496ED?logo=docker)](https://img.shields.io)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-Manifests-326CE5?logo=kubernetes)](https://img.shields.io)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub_Actions-2088FF?logo=githubactions)](https://img.shields.io)
+[![Security](https://img.shields.io/badge/DevSecOps-Trivy%20%7C%20Bandit%20%7C%20Gitleaks-red)](https://img.shields.io)
 
-A hands-on two-tier web application built with Flask (backend) and MySQL (database), with a full **DevSecOps pipeline** using GitHub Actions. Built from scratch for learning Docker, CI/CD, and production-grade security practices.
+A two-tier Todo app built with Flask and MySQL. Started as a Docker practice project, now covers the full path from a raw Dockerfile through Kubernetes manifests and a DevSecOps CI/CD pipeline.
 
-> 🎯 **Goal:** Learn Docker & DevSecOps by *building everything yourself* instead of just running ready-made configs.
-
----
-
-## 🧩 Application Overview
-
-A **Todo List application** with full user authentication where:
-
-- Users can register and log in to their own account
-- Each user manages only their own tasks
-- Tasks can be added, completed, renamed, and soft-deleted
-- All auth activity is tracked in the database (login / logout / failed attempts with IP + timestamp)
-- All data stored persistently in MySQL
+> **Goal:** Learn containerisation and orchestration by building everything yourself rather than running ready-made configs.
 
 ---
 
-## 🗂️ Project Structure
+## Application Overview
+
+A simple Todo List — add tasks, mark them complete, delete them. All data persists in MySQL.
+
+```
+Client (Browser)
+      ↓
+Flask App (Backend + Gunicorn)  ← 5 replicas in K8s
+      ↓
+MySQL 8.0 Database
+```
+
+---
+
+## Project Structure
 
 ```
 two-tier-app/
-├── app.py                        # Flask application logic
-├── requirements.txt              # Python dependencies
-├── schema.sql                    # MySQL schema (users, todos, auth_logs)
-├── dockerfile                    # Single-stage Dockerfile
-├── docker-compose.yml            # Orchestration config
+├── app.py                          # Flask application
+├── requirements.txt                # Python dependencies
+├── schema.sql                      # MySQL schema (auto-loaded on first run)
 ├── templates/
-│   ├── index.html                # Main todo UI
-│   ├── login.html                # Login page
-│   ├── register.html             # Registration page
-│   └── deleted.html              # Deleted todos view
-├── .github/
-│   └── workflows/
-│       ├── DevSecOps-pipeline.yml    # Main orchestrator pipeline
-│       ├── code-quality.yml          # flake8 + bandit
-│       ├── dependencies-scan.yml     # pip-audit
-│       ├── secrets-scan.yml          # gitleaks
-│       ├── dockerfile-scan.yml       # hadolint
-│       ├── docker-build-push.yml     # Docker build & push
-│       ├── image-scan.yml            # Trivy CVE scan
-│       └── deploy-to-prod-server.yml # SSH deploy to EC2
+│   └── index.html                  # Jinja2 frontend
+│
+├── dockerfile                      # Single-stage build (python:3.12-slim)
+├── docker-multi-stage-build        # Multi-stage build → distroless final image
+├── docker-compose.yml              # Local orchestration: Flask + MySQL
+├── .env.example                    # Environment variable reference
+│
+├── k8s/
+│   ├── namespace.yml               # Isolates resources under two-tier-ns
+│   ├── two-tier-deployment.yml     # Flask app — 5 replicas
+│   └── services.yml                # ClusterIP service exposing port 8000
+│
+├── .github/workflows/
+│   ├── DevSecOps-pipeline.yml      # Orchestrates all jobs end-to-end
+│   ├── code-quality.yml            # Flake8 + Bandit
+│   ├── secrets-scan.yml            # Gitleaks
+│   ├── dependencies-scan.yml       # pip-audit
+│   ├── dockerfile-scan.yml         # Hadolint
+│   ├── docker-build-push.yml       # Build + push to Docker Hub
+│   ├── image-scan.yml              # Trivy image scan
+│   └── deploy-to-prod-server.yml   # SSH deploy via Docker Compose
+│
+├── Jenkinsfile                     # Alternative Jenkins pipeline
+├── backup.sh                       # DB backup script
 └── README.md
 ```
 
 ---
 
-## ✨ Features
+## Tech Stack
 
-- ✅ User registration & login
-- ✅ Session-based authentication
-- ✅ Password hashing with Flask-Bcrypt
-- ✅ Per-user task isolation
-- ✅ Auth logging (login / logout / failed attempts)
-- ✅ Add, complete, rename, soft-delete todos
-- ✅ Persistent MySQL storage
-- ✅ Full DevSecOps CI/CD pipeline
-
----
-
-## ⚙️ Tech Stack
-
-| Layer            | Technology              |
-|------------------|-------------------------|
-| Frontend         | HTML (Jinja2 Templates) |
-| Backend          | Python Flask            |
-| Auth             | Flask-Bcrypt + Sessions |
-| Database         | MySQL 8.0               |
-| Containerization | Docker                  |
-| Orchestration    | Docker Compose          |
-| CI/CD & Security | GitHub Actions          |
-| Hosting          | AWS EC2                 |
+| Layer | Technology |
+|---|---|
+| Frontend | HTML (Jinja2 Templates) |
+| Backend | Python 3.12 + Flask |
+| WSGI Server | Gunicorn |
+| Database | MySQL 8.0 |
+| Containerization | Docker |
+| Local Orchestration | Docker Compose |
+| Production Orchestration | Kubernetes |
+| CI/CD | GitHub Actions |
+| Security Scanning | Trivy, Bandit, Gitleaks, Hadolint, pip-audit |
 
 ---
 
-## 🔐 DevSecOps Pipeline
+## Docker Setup
 
-The pipeline runs automatically on every push to main and on manual trigger (workflow_dispatch).
+### Base Image Choice
+
+The app uses **`python:3.12-slim`** as the base image.
+
+Why `slim` over the full `python:3.12`?
+
+- Full Python image is ~900 MB — ships with compilers and build tools you don't need at runtime.
+- `slim` cuts that to ~130 MB. Still Debian-based, so `apt-get` works when you need it.
+- `alpine` (~50 MB) uses `musl libc` instead of `glibc`, which causes subtle issues with C-extension packages like `mysql-connector`. Not worth debugging for this stack.
+
+### Dockerfile (Single-Stage)
+
+```dockerfile
+# Base image: Python 3.12 on Debian slim
+FROM python:3.12-slim
+
+# Patch system packages before anything else (covers known CVEs in the base)
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
+# Set working directory inside the container
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Install Python dependencies — no cache means smaller image layer
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Flask/Gunicorn listens on 5000
+EXPOSE 5000
+
+# Gunicorn, not the Flask dev server
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+```
+
+**Why Gunicorn instead of `python app.py`?**  
+Flask's built-in dev server is single-threaded and not safe for concurrent traffic. Gunicorn handles that and is what you'd actually run in a real deployment.
+
+**Why `--no-cache-dir`?**  
+Pip caches downloaded packages assuming you might reinstall. Inside a container image you never will, so it's just dead weight. Drop it.
+
+**Why `apt-get upgrade` first?**  
+Base images ship with packages that may have known CVEs. Upgrading at build time patches those before your app layers go on top. The `rm -rf /var/lib/apt/lists/*` clears the apt cache so it doesn't bloat the layer.
+
+### Build and Run
+
+```bash
+# Build
+docker build -t flask-app:latest .
+
+# Run standalone (needs MySQL running separately)
+docker run -d \
+  -p 5000:5000 \
+  -e MYSQL_HOST=<your-mysql-host> \
+  -e MYSQL_USER=admin \
+  -e MYSQL_PASSWORD=admin \
+  -e MYSQL_DB=mydb \
+  flask-app:latest
+```
+
+### Multi-Stage Dockerfile
+
+Installs dependencies in a builder stage, then copies only what's needed into a **distroless** final image.
+
+```dockerfile
+# Stage 1: Install dependencies
+FROM python:3.11-slim AS builder
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt --target=/app/deps
+
+# Stage 2: Runtime only — no shell, no package manager
+FROM gcr.io/distroless/python3-debian12
+WORKDIR /app
+COPY --from=builder /app/deps /app/deps
+COPY app.py .
+COPY templates/ ./templates/
+EXPOSE 5000
+ENV PYTHONPATH=/app/deps
+CMD ["python", "app.py"]
+```
+
+**What is distroless?**  
+Google's distroless images contain only the runtime (Python interpreter here) and nothing else. No bash, no apt, no utilities. The attack surface is minimal because there's nothing extra to exploit. Tradeoff: you can't `docker exec` into a shell for debugging. Use it for production images, not development.
+
+| Image | Approx Size | Shell | When to use |
+|---|---|---|---|
+| `python:3.12` | ~900 MB | Yes | Quick prototyping |
+| `python:3.12-slim` | ~130 MB | Yes | Most deployments |
+| `distroless/python3` | ~55 MB | No | Production, security-sensitive |
+
+```bash
+# Build the multi-stage image
+docker build -f docker-multi-stage-build -t flask-app:distroless .
+```
+
+### .dockerignore
+
+Keep junk out of the build context:
+
+```
+__pycache__/
+*.pyc
+*.pyo
+.env
+.git
+*.md
+```
+
+Without this, Docker sends your entire git history and local `.env` file to the build daemon on every build.
+
+---
+
+## Docker Compose (Local)
+
+Compose wires the two containers together — shared network, dependency ordering, persistent volumes.
+
+```yaml
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+    volumes:
+      - two-tier:/var/lib/mysql                                    # Named volume — data survives restarts
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro    # Auto-init schema on first start
+    networks:
+      - two-tier-app_network-project
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uadmin", "-padmin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  flask-app:
+    image: ${DOCKER_USER}/flask-image:${DOCKER_TAG}
+    container_name: two-tier-flask-app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      MYSQL_HOST: mysql         # Container name, not an IP
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+      MYSQL_DB: mydb
+    depends_on:
+      mysql:
+        condition: service_healthy   # Waits for healthcheck, not just container start
+    networks:
+      - two-tier-app_network-project
+
+volumes:
+  two-tier:
+
+networks:
+  two-tier-app_network-project:
+```
+
+Key things to understand:
+
+- `MYSQL_HOST: mysql` — containers on the same Docker network reach each other by name. No static IPs.
+- `condition: service_healthy` — plain `depends_on` only waits for the container to start. MySQL takes 20-30 seconds to actually accept connections. The healthcheck covers that gap.
+- `schema.sql` in `/docker-entrypoint-initdb.d/` — MySQL's official image auto-runs `.sql` files here on the very first start. That's how the `todos` table gets created without manual setup.
+- Named volume `two-tier` — without this, your data disappears on `docker-compose down`.
+
+### Running with Compose
+
+```bash
+# 1. Build the Flask image
+docker build -t your-dockerhub-username/flask-image:latest .
+
+# 2. Create .env file
+echo "DOCKER_USER=your-dockerhub-username" > .env
+echo "DOCKER_TAG=latest" >> .env
+
+# 3. Start everything
+docker-compose up -d
+
+# Useful commands
+docker-compose ps
+docker-compose logs -f
+docker-compose logs flask-app -f
+docker-compose down
+docker-compose down -v    # Also wipes volumes (deletes DB data)
+```
+
+App: `http://localhost:5000`
+
+---
+
+## Kubernetes Setup
+
+The `k8s/` directory contains three manifests that deploy the Flask app on any Kubernetes cluster. MySQL is handled separately (or via an existing service) — the K8s setup here focuses on the Flask tier.
+
+### Namespace
+
+```yaml
+# k8s/namespace.yml
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: two-tier-ns
+```
+
+Why a namespace? It isolates all resources for this app under `two-tier-ns` so they don't collide with other workloads on the cluster. Every subsequent manifest targets this namespace.
+
+Apply it first, before anything else:
+
+```bash
+kubectl apply -f k8s/namespace.yml
+```
+
+### Deployment
+
+```yaml
+# k8s/two-tier-deployment.yml
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: two-tier-deployment
+  namespace: two-tier-ns
+  labels:
+    app: two-tier-app
+
+spec:
+  replicas: 5                       # 5 pods running in parallel
+  selector:
+    matchLabels:
+      app: two-tier-app             # Deployment manages pods with this label
+
+  template:
+    metadata:
+      name: todo-app-pod
+      namespace: two-tier-ns
+      labels:
+        app: two-tier-app           # Must match selector above
+
+    spec:
+      containers:
+        - name: todo-app-container
+          image: heyyprakhar1/two-tier-app:latest
+          ports:
+            - containerPort: 5000   # Port the Flask/Gunicorn process listens on
+```
+
+What this does:
+
+- Creates a `Deployment` that maintains 5 identical Flask pods at all times. If a pod crashes, Kubernetes restarts it automatically.
+- The `selector.matchLabels` + `template.labels` pairing is how the Deployment tracks which pods it owns — they must match.
+- `containerPort: 5000` is documentation, not a firewall rule. Traffic to port 5000 on each pod is what the Service will route to.
+
+Things to add before using this in a real cluster:
+
+```yaml
+# Recommended additions to the container spec:
+env:
+  - name: MYSQL_HOST
+    value: "mysql-service"          # Point to your MySQL K8s service
+  - name: MYSQL_USER
+    valueFrom:
+      secretKeyRef:
+        name: mysql-secret
+        key: username
+  - name: MYSQL_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mysql-secret
+        key: password
+  - name: MYSQL_DB
+    value: "mydb"
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "250m"
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 5000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+```
+
+### Service
+
+```yaml
+# k8s/services.yml
+kind: Service
+apiVersion: v1
+
+metadata:
+  name: todo-service
+  namespace: two-tier-ns
+
+spec:
+  selector:
+    app: two-tier-app               # Routes traffic to pods with this label
+  ports:
+    - protocol: TCP
+      port: 8000                    # Port the Service exposes inside the cluster
+      targetPort: 5000              # Port on the pod (Flask/Gunicorn)
+```
+
+This is a **ClusterIP** service (the default). It gives the Deployment a stable internal IP and DNS name (`todo-service.two-tier-ns.svc.cluster.local`) so other services in the cluster can reach it at port 8000, regardless of which pod handles the request.
+
+The port mapping: cluster traffic hits port `8000` on the Service → forwarded to port `5000` on whichever pod is selected.
+
+**ClusterIP only exposes the app inside the cluster.** To make it accessible externally, change the service type:
+
+```yaml
+# For cloud clusters (AWS ELB, GCP LB, etc.)
+spec:
+  type: LoadBalancer
+  ...
+
+# For local clusters (Minikube, kind)
+spec:
+  type: NodePort
+  ports:
+    - port: 8000
+      targetPort: 5000
+      nodePort: 30080   # Access at <node-ip>:30080
+```
+
+### Deploy to Kubernetes
+
+```bash
+# Apply all manifests at once
+kubectl apply -f k8s/
+
+# Or one by one (namespace first)
+kubectl apply -f k8s/namespace.yml
+kubectl apply -f k8s/two-tier-deployment.yml
+kubectl apply -f k8s/services.yml
+```
+
+### Verify the Deployment
+
+```bash
+# Check all resources in the namespace
+kubectl get all -n two-tier-ns
+
+# Watch pod rollout
+kubectl rollout status deployment/two-tier-deployment -n two-tier-ns
+
+# Check pod logs
+kubectl logs -l app=two-tier-app -n two-tier-ns
+
+# Describe a pod (useful for debugging image pull errors, crashloops)
+kubectl describe pod -l app=two-tier-app -n two-tier-ns
+
+# Check service endpoints
+kubectl get endpoints todo-service -n two-tier-ns
+```
+
+### Update the Image
+
+```bash
+# Update to a new tag
+kubectl set image deployment/two-tier-deployment \
+  todo-app-container=heyyprakhar1/two-tier-app:v2 \
+  -n two-tier-ns
+
+# Watch the rolling update
+kubectl rollout status deployment/two-tier-deployment -n two-tier-ns
+
+# Roll back if something breaks
+kubectl rollout undo deployment/two-tier-deployment -n two-tier-ns
+```
+
+### Scale the Deployment
+
+```bash
+# Scale up
+kubectl scale deployment/two-tier-deployment --replicas=8 -n two-tier-ns
+
+# Scale down
+kubectl scale deployment/two-tier-deployment --replicas=2 -n two-tier-ns
+```
+
+### Tear Down
+
+```bash
+# Remove all resources in the namespace
+kubectl delete -f k8s/
+
+# Or delete the namespace (removes everything in it)
+kubectl delete namespace two-tier-ns
+```
+
+---
+
+## DevSecOps Pipeline (GitHub Actions)
+
+Seven security and deployment workflows wired together under one orchestrator. Triggered manually via `workflow_dispatch`.
 
 ### Pipeline Flow
 
 ```
-code-quality + dependency-check + dockerfile-scan + secrets-scan
-                          ↓
-                   docker-build-push
-                          ↓
-                       image-scan
-                          ↓
-               deploy-to-prod-server (EC2)
+DevSecOps-pipeline.yml
+│
+├── [Parallel gate — all must pass]
+│   ├── code-quality.yml        → Flake8 (linting) + Bandit (static security)
+│   ├── secrets-scan.yml        → Gitleaks (credential leaks in git history)
+│   ├── dependencies-scan.yml   → pip-audit (known CVEs in requirements.txt)
+│   └── dockerfile-scan.yml     → Hadolint (Dockerfile best practices)
+│
+├── docker-build-push.yml       → Builds image, pushes to Docker Hub (runs after gate passes)
+│
+├── image-scan.yml              → Trivy scans the pushed image for vulnerabilities
+│
+└── deploy-to-prod-server.yml   → SSH into prod server, pull new image, docker-compose up
 ```
 
-### Pipeline Stages
+Each step is a reusable workflow (`workflow_call`), so they can also run independently or be composed differently later.
 
-| Stage | Tool | What it does |
+### What Each Scan Does
+
+| Workflow | Tool | Catches |
 |---|---|---|
-| Code Quality | flake8 + bandit | PEP8 linting + SAST security scan |
-| Dependency Scan | pip-audit | Checks for CVEs in Python packages |
-| Secrets Scan | gitleaks | Detects secrets/credentials in git history |
-| Dockerfile Scan | hadolint | Lints Dockerfile for best practices |
-| Docker Build & Push | docker/build-push-action | Builds image and pushes to Docker Hub |
-| Image Scan | Trivy | Scans Docker image for OS/package CVEs |
-| Deploy | appleboy/ssh-action | SSH deploys to EC2 production server |
+| `code-quality.yml` | Flake8 + Bandit | PEP8 violations, insecure Python patterns (hardcoded passwords, use of `eval`, etc.) |
+| `secrets-scan.yml` | Gitleaks | API keys, tokens, credentials accidentally committed to git history |
+| `dependencies-scan.yml` | pip-audit | Python packages in `requirements.txt` with published CVEs |
+| `dockerfile-scan.yml` | Hadolint | Dockerfile anti-patterns (running as root, `latest` tags, missing `--no-cache-dir`, etc.) |
+| `image-scan.yml` | Trivy | OS-level and language-level CVEs in the final built image |
 
-### GitHub Actions Setup
+### Deployment Workflow
 
-#### 1. Repository Secrets (Settings → Secrets → Actions)
+After image scan passes, the deploy job SSH's into the prod server and runs:
 
-| Secret | Value |
-|---|---|
-| `DOCKER_PASSWORD` | Docker Hub access token |
-| `PROD_SERVER_HOST` | EC2 public IP address |
-| `PROD_SERVER_SSH_KEY` | EC2 private key (full PEM content) |
-| `PROD_SERVER_SSH_USER` | EC2 username (e.g. `ubuntu`) |
-
-#### 2. Repository Variables (Settings → Secrets → Variables)
-
-| Variable | Value |
-|---|---|
-| `DOCKER_USER` | Your Docker Hub username |
-
-#### 3. Self-hosted Runner
-
-All jobs run on a self-hosted runner. To set one up:
-
-```
-Repo → Settings → Actions → Runners → New self-hosted runner
+```bash
+docker compose down
+docker compose up -d --force-recreate --pull always
 ```
 
-Follow the instructions to register and start the runner on your EC2 instance.
+The image tag passed to Compose is `github.sha` — so every deployment is pinned to the exact commit that triggered it.
+
+### Required Secrets and Variables
+
+Set these in GitHub → Settings → Secrets and Variables → Actions:
+
+| Name | Type | Used by |
+|---|---|---|
+| `DOCKER_PASSWORD` | Secret | `docker-build-push.yml` — Docker Hub login |
+| `PROD_SERVER_HOST` | Secret | `deploy-to-prod-server.yml` — SSH target |
+| `PROD_SERVER_SSH_USER` | Secret | `deploy-to-prod-server.yml` — SSH username |
+| `PROD_SERVER_SSH_KEY` | Secret | `deploy-to-prod-server.yml` — private key |
+| `DOCKER_USER` | Variable (not secret) | `deploy-to-prod-server.yml` — Docker Hub username |
+
+### Trigger the Pipeline
+
+Go to Actions → DevSecOps end-to-end workflow → Run workflow.
 
 ---
 
-## 🐳 Run with Docker Compose
+## Run Without Docker (Local Setup)
+
+**Prerequisites:** Python 3.9+, MySQL 8.0+
 
 ```bash
-# Start the app
-docker-compose up -d --build
-
-# Fresh start 
-docker-compose down -v
-docker-compose up -d --build
-```
-
-Useful commands:
-
-```bash
-docker-compose ps
-docker-compose logs -f
-docker-compose down
-```
-
-> ⚠️ Never commit `.env` — use environment variables or GitHub Secrets for credentials.
-
----
-
-## 🖥️ Run Locally (Without Docker)
-
-### Prerequisites
-- Python 3.9+
-- MySQL 8.0+
-
-```bash
-# 1. Setup MySQL
+# Load schema
 mysql -u root -p
 source schema.sql
 
-# 2. Install dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# 3. Set environment variables
+# Set environment variables
 export MYSQL_HOST=localhost
 export MYSQL_PORT=3306
 export MYSQL_USER=root
@@ -182,33 +565,96 @@ export MYSQL_PASSWORD=your_password
 export MYSQL_DB=mydb
 export SECRET_KEY=dev-secret
 
-# 4. Run
+# Run
 python app.py
 ```
 
-- App: http://localhost:5000
-- Health: http://localhost:5000/health
-
-
-## 🎓 Why This Project Matters
-
-- ✅ Built from scratch — not a copy-paste repo
-- ✅ Full DevSecOps pipeline with real security tooling
-- ✅ Production-grade auth (bcrypt, session management, audit logging)
-- ✅ Demonstrates Docker, CI/CD, and cloud deployment fundamentals
-- ✅ Shows security awareness (CVE scanning, secrets detection, SAST)
+App: `http://localhost:5000` | Health: `http://localhost:5000/health`
 
 ---
 
-## 📜 License
+## Environment Variables
 
-MIT License — Free to use for learning & portfolio.
+| Variable | Description | Example |
+|---|---|---|
+| `MYSQL_HOST` | DB hostname (container name in Compose, service name in K8s) | `mysql` |
+| `MYSQL_PORT` | MySQL port | `3306` |
+| `MYSQL_USER` | DB username | `admin` |
+| `MYSQL_PASSWORD` | DB password | `admin` |
+| `MYSQL_DB` | Database name | `mydb` |
+| `SECRET_KEY` | Flask session secret | `dev-secret` |
+| `DOCKER_USER` | Docker Hub username | `yourname` |
+| `DOCKER_TAG` | Image tag | `latest` |
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/` | View all todos |
+| POST | `/add` | Add a todo |
+| GET | `/complete/<id>` | Mark complete |
+| GET | `/delete/<id>` | Delete a todo |
+| GET | `/health` | Health check |
+
+---
+
+## Learning Path Covered
+
+1. **Dockerfile** — single-stage, `python:3.12-slim`, Gunicorn
+2. **Multi-stage builds** — separate build and runtime stages
+3. **Distroless images** — minimal production images
+4. **Volumes** — MySQL persistence in Docker and K8s
+5. **Docker networking** — container-to-container by name
+6. **Docker Compose** — local multi-container orchestration
+7. **Kubernetes — Namespace** — resource isolation
+8. **Kubernetes — Deployment** — replica management, rolling updates, rollbacks
+9. **Kubernetes — Service** — stable networking, ClusterIP vs NodePort vs LoadBalancer
+10. **Image tagging** — versioning with git SHA
+11. **DevSecOps pipeline** — 6-stage security gate before deploy
+12. **CI/CD** — GitHub Actions + Jenkins
+
+---
+
+## Common Issues
+
+**Database connection error on startup**  
+MySQL takes ~20-30 seconds to be ready. In Compose, `condition: service_healthy` handles this. In K8s, add a `readinessProbe` to the Flask container so Kubernetes doesn't route traffic until the pod is actually ready.
+
+**Pods stuck in `ImagePullBackOff`**  
+The image `heyyprakhar1/two-tier-app:latest` must exist on Docker Hub. Build and push it first:
+```bash
+docker build -t heyyprakhar1/two-tier-app:latest .
+docker push heyyprakhar1/two-tier-app:latest
+```
+
+**Flask can't reach MySQL in K8s**  
+`MYSQL_HOST` should be the name of your MySQL Kubernetes Service, not `localhost` or a Docker container name.
+
+**Port already in use (Docker)**
+```bash
+docker run -p 5001:5000 flask-app
+```
+
+**Docker permission denied**
+```bash
+sudo usermod -aG docker $USER
+# Re-login required
+```
+
+**Schema not loading (Compose)**  
+The `schema.sql` auto-init only runs when the MySQL volume is empty. If the volume already exists, wipe it:
+```bash
+docker-compose down -v && docker-compose up -d
+```
+
+---
+
+## License
+
+MIT — free to use for learning and portfolio work.
 
 ---
 
 > **Break things. Fix them. Repeat.**
-> That's how real DevOps engineers are made 💪
-
-## ⭐ Final Note
-
-Happy Dockering 🐳🚀
