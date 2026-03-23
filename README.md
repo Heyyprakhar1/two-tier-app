@@ -196,54 +196,8 @@ Without this, Docker sends your entire git history and local `.env` file to the 
 
 ## Docker Compose (Local)
 
-Compose wires the two containers together — shared network, dependency ordering, persistent volumes.
+Compose wires the two containers together — shared network, dependency ordering, and persistent volumes.
 
-```yaml
-services:
-  mysql:
-    image: mysql:8.0
-    container_name: mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: mydb
-      MYSQL_USER: admin
-      MYSQL_PASSWORD: admin
-    volumes:
-      - two-tier:/var/lib/mysql                                    # Named volume — data survives restarts
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro    # Auto-init schema on first start
-    networks:
-      - two-tier-app_network-project
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uadmin", "-padmin"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  flask-app:
-    image: ${DOCKER_USER}/flask-image:${DOCKER_TAG}
-    container_name: two-tier-flask-app
-    restart: unless-stopped
-    ports:
-      - "5000:5000"
-    environment:
-      MYSQL_HOST: mysql         # Container name, not an IP
-      MYSQL_USER: admin
-      MYSQL_PASSWORD: admin
-      MYSQL_DB: mydb
-    depends_on:
-      mysql:
-        condition: service_healthy   # Waits for healthcheck, not just container start
-    networks:
-      - two-tier-app_network-project
-
-volumes:
-  two-tier:
-
-networks:
-  two-tier-app_network-project:
-```
 
 Key things to understand:
 
@@ -279,58 +233,16 @@ App: `http://localhost:5000`
 
 ## Kubernetes Setup
 
-The `k8s/` directory contains three manifests that deploy the Flask app on any Kubernetes cluster. MySQL is handled separately (or via an existing service) — the K8s setup here focuses on the Flask tier.
+The `k8s/` directory contains three manifests that deploy the Flask app on any Kubernetes cluster. MySQL is handled separately (or via an existing service) — the K8S setup here focuses on the Flask tier.
 
 ### Namespace
-
-```yaml
-# k8s/namespace.yml
-kind: Namespace
-apiVersion: v1
-metadata:
-  name: two-tier-ns
 ```
-
 Why a namespace? It isolates all resources for this app under `two-tier-ns` so they don't collide with other workloads on the cluster. Every subsequent manifest targets this namespace.
 
 Apply it first, before anything else:
 
 ```bash
 kubectl apply -f k8s/namespace.yml
-```
-
-### Deployment
-
-```yaml
-# k8s/two-tier-deployment.yml
-apiVersion: apps/v1
-kind: Deployment
-
-metadata:
-  name: two-tier-deployment
-  namespace: two-tier-ns
-  labels:
-    app: two-tier-app
-
-spec:
-  replicas: 5                       # 5 pods running in parallel
-  selector:
-    matchLabels:
-      app: two-tier-app             # Deployment manages pods with this label
-
-  template:
-    metadata:
-      name: todo-app-pod
-      namespace: two-tier-ns
-      labels:
-        app: two-tier-app           # Must match selector above
-
-    spec:
-      containers:
-        - name: todo-app-container
-          image: heyyprakhar1/two-tier-app:latest
-          ports:
-            - containerPort: 5000   # Port the Flask/Gunicorn process listens on
 ```
 
 What this does:
@@ -484,7 +396,7 @@ kubectl delete namespace two-tier-ns
 
 ## DevSecOps Pipeline (GitHub Actions)
 
-Seven security and deployment workflows wired together under one orchestrator. Triggered manually via `workflow_dispatch`.
+Seven security and deployment workflows are wired together under one orchestrator. Triggered manually via `workflow_dispatch`.
 
 ### Pipeline Flow
 
@@ -623,13 +535,13 @@ App: `http://localhost:5000` | Health: `http://localhost:5000/health`
 MySQL takes ~20-30 seconds to be ready. In Compose, `condition: service_healthy` handles this. In K8s, add a `readinessProbe` to the Flask container so Kubernetes doesn't route traffic until the pod is actually ready.
 
 **Pods stuck in `ImagePullBackOff`**  
-The image `heyyprakhar1/two-tier-app:latest` must exist on Docker Hub. Build and push it first:
+The image `heyyprakhar1/two-tier-app: latest` must exist on Docker Hub. Build and push it first:
 ```bash
 docker build -t heyyprakhar1/two-tier-app:latest .
 docker push heyyprakhar1/two-tier-app:latest
 ```
 
-**Flask can't reach MySQL in K8s**  
+**Flask can't reach MySQL in K8S**  
 `MYSQL_HOST` should be the name of your MySQL Kubernetes Service, not `localhost` or a Docker container name.
 
 **Port already in use (Docker)**
