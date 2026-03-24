@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   mysql:
     image: mysql:8.0
@@ -12,7 +14,7 @@ services:
       - two-tier:/var/lib/mysql
       - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
     networks:
-      - two-tier-app_network-project
+      - two-tier-app-network
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uadmin", "-padmin"]
       interval: 10s
@@ -21,7 +23,8 @@ services:
       start_period: 30s
 
   flask-app:
-    image: ${DOCKER_USER}/flask-image:${DOCKER_TAG}
+    build: .
+    image: flask-local:latest
     container_name: two-tier-flask-app
     restart: unless-stopped
     ports:
@@ -35,10 +38,10 @@ services:
       mysql:
         condition: service_healthy
     networks:
-      - two-tier-app_network-project
+      - two-tier-app-network
 
 volumes:
   two-tier:
 
 networks:
-  two-tier-app_network-project:
+  two-tier-app-network:
