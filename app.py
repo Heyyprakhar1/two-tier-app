@@ -18,6 +18,7 @@ DB_CONFIG = {
     'database': os.environ.get('MYSQL_DB', 'mydb')
 }
 
+
 def get_db_connection():
     """Create and return database connection"""
     try:
@@ -26,6 +27,7 @@ def get_db_connection():
     except Error as e:
         print(f"Error connecting to MySQL: {e}")
         return None
+
 
 def init_db():
     """Initialize database and create tables if they don't exist"""
@@ -53,6 +55,8 @@ def init_db():
 # LOGIN REQUIRED DECORATOR
 # Protects routes — redirects to login if not logged in
 # ─────────────────────────────────────────────
+
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -66,6 +70,8 @@ def login_required(f):
 # AUTH HELPER
 # Logs every login / logout / failed attempt
 # ─────────────────────────────────────────────
+
+
 def log_auth_action(action, user_id=None, username_attempted=None):
     """Insert a record into auth_logs"""
     connection = get_db_connection()
@@ -87,6 +93,8 @@ def log_auth_action(action, user_id=None, username_attempted=None):
 # ─────────────────────────────────────────────
 # AUTH ROUTES  (register / login / logout)
 # ─────────────────────────────────────────────
+
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     """Register a new user"""
@@ -95,7 +103,7 @@ def register():
 
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
-        email    = request.form.get('email', '').strip()
+        email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
 
         if not username or not email or not password:
@@ -151,14 +159,19 @@ def login():
         if connection:
             try:
                 cursor = connection.cursor(dictionary=True)
-                cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+                cursor.execute(
+                    "SELECT * FROM users WHERE username = %s", (username,))
                 user = cursor.fetchone()
 
-                if user and bcrypt.check_password_hash(user['password_hash'], password):
+                if user and bcrypt.check_password_hash(
+                        user['password_hash'], password):
                     # Successful login
-                    session['user_id']  = user['id']
+                    session['user_id'] = user['id']
                     session['username'] = user['username']
-                    log_auth_action('login', user_id=user['id'], username_attempted=username)
+                    log_auth_action(
+                        'login',
+                        user_id=user['id'],
+                        username_attempted=username)
                     flash(f"Welcome back, {user['username']}!", 'success')
                     return redirect(url_for('index'))
                 else:
@@ -180,7 +193,8 @@ def login():
 @login_required
 def logout():
     """Log out the current user"""
-    log_auth_action('logout', user_id=session.get('user_id'), username_attempted=session.get('username'))
+    log_auth_action('logout', user_id=session.get('user_id'),
+                    username_attempted=session.get('username'))
     session.clear()
     flash('You have been logged out.', 'success')
     return redirect(url_for('login'))
