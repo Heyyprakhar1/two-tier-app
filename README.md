@@ -57,7 +57,7 @@ two-tier-app/
 ---
 
 ## 🏗️ Architecture
-![Architecture<img width="1376" height="768" alt="two-tier" src="https://github.com/user-attachments/assets/8958e29b-1105-4f98-9bac-d60f80e22384" />
+<img width="1376" height="768" alt="two-tier" src="https://github.com/user-attachments/assets/8958e29b-1105-4f98-9bac-d60f80e22384" />
 
 
 ## ✨ Features
