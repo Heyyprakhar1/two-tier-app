@@ -25,3 +25,4 @@ INSERT INTO todos (task, status) VALUES
     ('Create docker-compose.yml', 'pending'),
     ('Push to Docker Hub', 'pending'),
     ('Deploy to production', 'pending');
+*.zip
