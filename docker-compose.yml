@@ -24,7 +24,6 @@ services:
 
   flask-app:
     build: .
-    image: heyyprakhar1/flask-image:latest
     container_name: two-tier-flask-app
     restart: unless-stopped 
     ports:
